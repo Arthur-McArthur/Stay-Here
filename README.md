@@ -82,7 +82,7 @@ To enable one-click navigation, choose **Enable one-click Dock switching…** an
 
 With this option enabled, one ordinary left-click on an already-running app's Dock icon follows its window to the other desktop. Clicking a closed app still launches it on its assigned desktop and leaves you where you are. Modified clicks, drags, and apps still starting are left to macOS. A new click, key press, or scroll cancels pending navigation.
 
-One-click navigation currently supports a single display. It uses your enabled **Move left a space / Move right a space** keyboard shortcuts, honoring custom bindings. Keep those shortcuts enabled under **System Settings → Keyboard → Keyboard Shortcuts → Mission Control**. Crossing several desktops uses their normal transition animations. Multiple displays remain unsupported by this optional feature.
+One-click navigation currently supports a single display and regular Desktops 1–9 on macOS 26. It jumps directly to the destination and raises the selected window. You do not need to enable desktop keyboard shortcuts manually: it honors the existing binding, temporarily enables the numbered desktop action if needed, and restores its original disabled state after delivery. Full-screen Spaces and multiple displays remain unsupported by this optional feature.
 
 To include another app, go to its desired desktop, then right-click its Dock icon and choose **Options → Assign To → This Desktop**. Stay Here reads the assignment on that app's next launch. No helper restart is needed.
 
@@ -115,7 +115,7 @@ For an app launching onto another assigned desktop, Stay Here:
 
 The launch guard never switches the active Space. Process identity checks use the PID, LaunchServices ASN, bundle ID, executable path, and launch date when available. An originally absent persistence flag is restored as `false`; an existing `true` flag is preserved.
 
-One-click Dock navigation is a separate input path. Accessibility hit-testing identifies the clicked Dock item and its exact application URL. Only an existing, finished-launching process with a window on another Space is eligible. After an unmodified click, Stay Here posts the native desktop-navigation shortcut, verifies each transition, then focuses the selected app. It does not change the automatic-switch settings or move the app's windows. Navigation stops if the process identity, desktop ordering, permissions, or user intent changes.
+One-click Dock navigation is a separate input path. Accessibility hit-testing identifies the clicked Dock item and its exact application URL. Only an existing, finished-launching process is eligible. It identifies that app's actual window, unhides and raises it, then invokes the native numbered desktop action in a single jump if needed. Completion requires the window to be on-screen with its app in front; being on the right desktop alone is insufficient. A short, guarded raise can repair a covered window. It does not change the automatic-switch settings, replace shortcut bindings, or move the app's windows. Navigation stops if the process identity, desktop ordering, permissions, or user intent changes.
 
 The app makes no network requests and contains no telemetry. Diagnostic logs contain process IDs, bundle identifiers, Space IDs, and API results, not window titles or project contents. Mouse events identify Dock clicks; key-down and scroll notifications only cancel navigation. Typed characters are never inspected or logged.
 

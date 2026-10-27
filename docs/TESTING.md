@@ -18,6 +18,20 @@ An isolated REAPER launch placed its windows on its assigned desktop. Its fresh-
 
 ## One-click Dock navigation
 
+### 0.2.1 direct-jump and visibility qualification
+
+On the same single-display macOS 26 host, native numbered desktop actions jumped D1→D3 without visiting D2. Originally disabled actions were disabled again after posting, and the serialized saved shortcut preferences were byte-identical before and after the probe.
+
+The installed, consistently signed 0.2.1 build retained its Accessibility grant. One simulated ordinary click on Firefox's Dock icon from D1 produced a direct D1→D3 transition. A separate WindowServer observer confirmed Firefox's exact window was on-screen and its process owned the top normal window on arrival. The helper recorded `windowVisible=true` and completion in approximately 0.49 seconds. The observer saw no intermediate D2. This checks the actual Firefox window, not just the active desktop or foreground process.
+
+The direct action currently supports regular Desktops 1–9 on macOS 26 and a single display. Full-screen and multiple-display routing are excluded. Existing shortcut bindings are read without replacement; temporary runtime enabling is restored after delivery and on disable/quit.
+
+A subsequent disposable-app cold launch stayed on its original desktop, followed by one Dock click that reached its assigned desktop with the window verified visible in front in approximately 0.60 seconds. Same-desktop Firefox navigation also recorded a verified visible window in approximately 0.17 seconds. The input handler no longer requires a second live hit-test after mouse-up, because the Dock may already be hidden or rearranged by then; drag displacement and process identity are still checked.
+
+The prior arrow-navigation route could drop a subsequent shortcut or reach the destination without showing the requested window promptly. Its fixed delay and advisory app activation were replaced by the direct action and explicit window raise. `SLSManagedDisplayIsAnimating` was observed false across several real desktop changes, so it is not used as proof that a transition has settled.
+
+### 0.2.0 preliminary observations
+
 Version 0.2.0 was additionally tested on a single display with both automatic-switch preferences still disabled. A test helper with Accessibility access launched a disposable, natively assigned application: the active desktop stayed on Desktop 1 and its window appeared on Desktop 2. One simulated ordinary Dock click then produced a `dock-navigation` event and a completed native transition to Desktop 2. The cold-launch guard restored its temporary metadata before that click. This establishes the complete input-to-navigation path in the test process; the independently installed app must receive its own Accessibility grant.
 
 Direct application activation, Dock accessibility press actions, and a direct user-generated process-focus request did not consistently navigate under the disabled automatic-switch settings. The navigation feature therefore uses enabled native desktop shortcuts. Modifier flags include the arrow keys' function flag; omitting that flag failed to trigger the default desktop shortcut in the native test.
