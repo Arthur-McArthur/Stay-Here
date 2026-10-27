@@ -18,6 +18,12 @@ An isolated REAPER launch placed its windows on its assigned desktop. Its fresh-
 
 ## One-click Dock navigation
 
+### 0.2.2 latency changes
+
+The fixed 100 ms post-click dispatch delay was removed. Accessibility window focusing now overlaps the native desktop transition, and arrival verifies the window immediately instead of always repeating the focus operations and waiting another 80 ms. The guarded repair remains available when the window is not visible in front. Completion logs also report `clickElapsed`, measured from receipt of mouse-up.
+
+The signed build and seven installer checks passed. The initial post-change live timing attempt encountered a locked desktop and produced no valid samples; it is not used as performance evidence. The timings below qualify 0.2.1, not a measured speedup for 0.2.2.
+
 ### 0.2.1 direct-jump and visibility qualification
 
 On the same single-display macOS 26 host, native numbered desktop actions jumped D1→D3 without visiting D2. Originally disabled actions were disabled again after posting, and the serialized saved shortcut preferences were byte-identical before and after the probe.

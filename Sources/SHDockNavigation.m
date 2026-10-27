@@ -46,6 +46,7 @@ static id SHAXAttribute(AXUIElementRef element, CFStringRef key) {
 @property(nonatomic, strong) id windowElement;
 @property(nonatomic) int desktopHotkey;
 @property(nonatomic) double startedAt;
+@property(nonatomic) double mouseUpAt;
 @end
 @implementation SHDockIntent
 @end
@@ -293,14 +294,18 @@ static id SHAXAttribute(AXUIElementRef element, CFStringRef key) {
     return NO;
 }
 
-- (void)bringWindowForward:(SHDockIntent *)intent {
-    if (![self identityMatches:intent] || ![self windowStillExists:intent]) return;
+- (BOOL)frontWindowProcess:(SHDockIntent *)intent {
+    if (![self identityMatches:intent] || ![self windowStillExists:intent]) return NO;
     [intent.app unhide];
     [intent.app activateWithOptions:0];
     if (_processForPID && _focusWindow) {
         SHProcessSerialNumber psn = {0};
         if (_processForPID(intent.app.processIdentifier, &psn) == noErr) _focusWindow(&psn, intent.windowID, 0x200);
     }
+    return YES;
+}
+
+- (void)raiseWindowAccessibility:(SHDockIntent *)intent {
     if (!intent.windowElement) intent.windowElement = [self focusedWindowForApp:intent.app matching:intent.windowID];
     if (intent.windowElement) {
         AXUIElementRef window = (__bridge AXUIElementRef)intent.windowElement;
@@ -312,6 +317,10 @@ static id SHAXAttribute(AXUIElementRef element, CFStringRef key) {
             if (intent.windowElement) AXUIElementPerformAction((__bridge AXUIElementRef)intent.windowElement, kAXRaiseAction);
         }
     }
+}
+
+- (void)bringWindowForward:(SHDockIntent *)intent {
+    if ([self frontWindowProcess:intent]) [self raiseWindowAccessibility:intent];
 }
 
 - (BOOL)windowIsVisibleInFront:(SHDockIntent *)intent {
@@ -332,7 +341,8 @@ static id SHAXAttribute(AXUIElementRef element, CFStringRef key) {
 - (void)verifyWindow:(SHDockIntent *)intent generation:(NSUInteger)generation retry:(BOOL)retry {
     if (!self.enabled || self.generation != generation || ![self identityMatches:intent] || _activeSpace(_connection) != intent.target) return;
     if ([self windowIsVisibleInFront:intent]) {
-        SHDockLog(@"dock-navigation-complete", @{@"pid": @(intent.app.processIdentifier), @"targetSpace": @(intent.target), @"windowVisible": @YES, @"elapsed": @(NSProcessInfo.processInfo.systemUptime - intent.startedAt)});
+        double now = NSProcessInfo.processInfo.systemUptime;
+        SHDockLog(@"dock-navigation-complete", @{@"pid": @(intent.app.processIdentifier), @"targetSpace": @(intent.target), @"windowVisible": @YES, @"elapsed": @(now - intent.startedAt), @"clickElapsed": @(now - intent.mouseUpAt)});
     } else if (retry) {
         [self bringWindowForward:intent];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
@@ -347,10 +357,9 @@ static id SHAXAttribute(AXUIElementRef element, CFStringRef key) {
     if (!self.enabled || self.generation != generation || ![self hasPermission] || ![self identityMatches:intent]) return;
     uint64_t current = _activeSpace(_connection);
     if (current == intent.target) {
-        [self bringWindowForward:intent];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 80 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-            [self verifyWindow:intent generation:generation retry:YES];
-        });
+        // Most windows are already ready by arrival. Only repair a window
+        // that actually needs it, rather than raising every window twice.
+        [self verifyWindow:intent generation:generation retry:YES];
     } else if (current == intent.origin && NSProcessInfo.processInfo.systemUptime < deadline && [[self orderedSpaces] isEqual:intent.spaces]) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 20 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
             [self waitForDesktop:intent generation:generation deadline:deadline];
@@ -363,12 +372,15 @@ static id SHAXAttribute(AXUIElementRef element, CFStringRef key) {
 
 - (void)navigate:(SHDockIntent *)intent generation:(NSUInteger)generation {
     intent.startedAt = NSProcessInfo.processInfo.systemUptime;
-    // Raise before switching so the window is already in front on arrival.
-    [self bringWindowForward:intent];
+    // Front the native window first; overlap Accessibility work with the
+    // compositor transition instead of delaying the desktop request for it.
+    if (![self frontWindowProcess:intent]) return;
     uint64_t current = _activeSpace(_connection);
     if (current == intent.target) {
+        [self raiseWindowAccessibility:intent];
         [self waitForDesktop:intent generation:generation deadline:intent.startedAt + 1];
     } else if (current == intent.origin && [self postDesktopHotkey:intent.desktopHotkey]) {
+        [self raiseWindowAccessibility:intent];
         [self waitForDesktop:intent generation:generation deadline:intent.startedAt + 1.5];
     } else {
         SHDockLog(@"dock-navigation-cancelled", @{@"reason": @"direct-desktop-unavailable"});
@@ -403,7 +415,8 @@ static id SHAXAttribute(AXUIElementRef element, CFStringRef key) {
         // hidden or rearranged its tiles after processing mouse-up already;
         // trust the verified press target and drag/identity checks instead.
         NSUInteger generation = self.generation;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        intent.mouseUpAt = NSProcessInfo.processInfo.systemUptime;
+        dispatch_async(dispatch_get_main_queue(), ^{
             if (!self.enabled || self.generation != generation || ![self identityMatches:intent]) return;
             uint64_t current = self->_activeSpace(self->_connection);
             if (current != intent.origin && current != intent.target) return;

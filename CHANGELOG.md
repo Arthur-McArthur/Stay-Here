@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+- Remove the fixed 100 ms wait before reacting to a completed Dock click.
+- Overlap Accessibility window focusing with the native desktop transition.
+- Verify visible windows immediately instead of always raising them again and waiting another 80 ms; retain guarded repair for covered windows.
+- Record click-to-completion timing alongside navigation timing.
+
 ## 0.2.1
 
 - Replace repeated arrow-key desktop transitions with one native jump to the destination desktop.
