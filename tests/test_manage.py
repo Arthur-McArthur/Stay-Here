@@ -100,5 +100,29 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(other.read_text(), "keep me")
 
 
+class LocationTests(unittest.TestCase):
+    def test_existing_system_install_is_preserved(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder) / "home"
+            system_app = Path(folder) / "system/Applications/Stay Here.app"
+            agent = home / "Library/LaunchAgents" / (manage.LABEL + ".plist")
+            agent.parent.mkdir(parents=True)
+            agent.write_bytes(plistlib.dumps({"Label": manage.LABEL, "ProgramArguments": [str(system_app / "Contents/MacOS/StayHere")]}))
+            with patch.object(manage.Path, "home", return_value=home), patch.object(manage, "SYSTEM_APP", system_app):
+                self.assertEqual(manage.paths()[0], system_app)
+
+    def test_agent_cannot_redirect_removal_to_arbitrary_location(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder)
+            agent = home / "Library/LaunchAgents" / (manage.LABEL + ".plist")
+            agent.parent.mkdir(parents=True)
+            agent.write_bytes(plistlib.dumps({"Label": manage.LABEL, "ProgramArguments": ["/some/unrelated/app/Contents/MacOS/StayHere"]}))
+            with patch.object(manage.Path, "home", return_value=home):
+                app, selected_agent, _ = manage.paths()
+                self.assertEqual(app, home / "Applications/Stay Here.app")
+                with self.assertRaisesRegex(RuntimeError, "unexpected contents"):
+                    manage.verify_agent(selected_agent, app)
+
+
 if __name__ == "__main__":
     unittest.main()

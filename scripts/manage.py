@@ -13,6 +13,7 @@ import tempfile
 
 LABEL = "com.arthurmcarthur.stay-here"
 REPO = Path(__file__).resolve().parent.parent
+SYSTEM_APP = Path("/Applications/Stay Here.app")
 
 
 def run(*args, check=True):
@@ -21,9 +22,17 @@ def run(*args, check=True):
 
 def paths():
     user_dir = Path.home()
+    agent = user_dir / "Library/LaunchAgents" / (LABEL + ".plist")
+    app = user_dir / "Applications/Stay Here.app"
+    if agent.is_file() and not agent.is_symlink():
+        config = plistlib.loads(agent.read_bytes())
+        # Respect an existing install in the main Applications folder. Only
+        # these two known locations are accepted; never follow arbitrary argv.
+        if config.get("Label") == LABEL and config.get("ProgramArguments") == [str(SYSTEM_APP / "Contents/MacOS/StayHere")]:
+            app = SYSTEM_APP
     return (
-        user_dir / "Applications/Stay Here.app",
-        user_dir / "Library/LaunchAgents" / (LABEL + ".plist"),
+        app,
+        agent,
         user_dir / "Library/Logs/Stay Here",
     )
 

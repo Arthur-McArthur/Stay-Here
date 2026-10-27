@@ -33,6 +33,8 @@ Additional acceptance checks:
 - Disable the optional Dock feature or revoke Accessibility: launch guarding must remain available.
 - Multiple displays are deliberately not routed by the optional feature; full-screen and unusual app window behavior remain unqualified.
 
+The final consistently signed installed bundle subsequently reported Accessibility permission and completed a normal browser's Dock-navigation route. Moving it to the main Applications folder and updating its login entry retained that permission. A later disposable-app check overlapped other Dock navigation, so its desktop snapshot alone is not independent proof of that click's route.
+
 ## Packaging checks
 
 The build script compiles the native app, validates `Info.plist`, applies an ad-hoc signature, and verifies that signature. Installer tests use temporary directories and mocked service operations to exercise successful installation, rollback, dry runs, and refusal to remove an unrelated app. They do not launch apps or edit desktop assignments.

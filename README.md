@@ -62,6 +62,8 @@ The installer starts the app immediately and enables it at login. It installs on
 | Login agent | `~/Library/LaunchAgents/com.arthurmcarthur.stay-here.plist` |
 | Local logs | `~/Library/Logs/Stay Here/` |
 
+If an existing login entry points to `/Applications/Stay Here.app`, updates and uninstall preserve that location. Moving the app manually also requires updating its login entry; changing only the Finder location leaves login startup pointing at the old path.
+
 Run without installing or enabling login startup:
 
 ```sh
