@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build and verify the app
+        run: ./scripts/build.sh
+      - name: Test installer safety and rollback
+        run: python3 -m unittest discover -s tests -v
+      - name: Check installer previews
+        run: |
+          python3 scripts/manage.py install --dry-run
+          python3 scripts/manage.py uninstall --dry-run
+      - name: Package the app
+        run: ditto -c -k --sequesterRsrc --keepParent "build/Stay Here.app" build/Stay-Here.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Stay-Here-macOS
+          path: build/Stay-Here.zip
+          retention-days: 14
