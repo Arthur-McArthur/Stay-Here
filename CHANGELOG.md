@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Optional one-click Dock navigation for already-running apps, while keeping automatic desktop switching disabled for background launches.
+- Accessibility permission control and a separate menu toggle for Dock navigation.
+- Navigation follows native desktop shortcuts, checks process identity and desktop ordering, and cancels on newer user input.
+
 ## 0.1.2
 
 - Custom pinned-monitor menu-bar icon.

@@ -2,11 +2,12 @@
 // Copyright (c) 2026 Arthur-McArthur
 #import <AppKit/AppKit.h>
 #import <CoreFoundation/CoreFoundation.h>
+#import "SHDockNavigation.h"
 #include <dlfcn.h>
 #include <signal.h>
 #include <math.h>
 
-// These private APIs are resolved at runtime. No preferences, app bindings,
+// These private APIs are resolved at runtime. No system Spaces preferences, app bindings,
 // application bundles, or system files are changed by this helper.
 typedef CFTypeRef (*SHCreateASN)(CFAllocatorRef, pid_t);
 typedef CFTypeRef (*SHCopyAppItem)(int32_t, CFTypeRef, CFTypeRef);
@@ -135,6 +136,8 @@ static BOOL SHIsTrue(id value) {
 @property(nonatomic, strong, nullable) NSTimer *timer;
 @property(nonatomic, strong, nullable) NSStatusItem *statusItem;
 @property(nonatomic, strong, nullable) NSMenuItem *enabledItem;
+@property(nonatomic, strong) SHDockNavigation *dockNavigation;
+@property(nonatomic, strong) NSMenuItem *dockNavigationItem;
 @property(nonatomic, strong) NSMutableArray *signalSources;
 @property(nonatomic, copy, nullable) NSString *onlyBundle;
 @property(nonatomic) BOOL headless;
@@ -302,6 +305,7 @@ static BOOL SHIsTrue(id value) {
 }
 
 - (void)tick {
+    [self updateDockNavigationMenu];
     uint64_t current = self.api->activeSpace(self.api->connection);
     for (SHLaunch *launch in self.launches.allValues) {
         if (![self matchesIdentity:launch]) { [self releaseLaunch:launch reason:@"application-ended"]; continue; }
@@ -320,9 +324,22 @@ static BOOL SHIsTrue(id value) {
 
 - (void)toggleEnabled:(id)sender {
     self.enabled = !self.enabled;
+    self.dockNavigation.enabled = self.enabled && ![NSUserDefaults.standardUserDefaults boolForKey:@"DockNavigationDisabled"];
     self.enabledItem.state = self.enabled ? NSControlStateValueOn : NSControlStateValueOff;
     if (!self.enabled) for (SHLaunch *launch in self.launches.allValues) [self releaseLaunch:launch reason:@"disabled"];
     SHLog(@"enabled", @{@"value": @(self.enabled)});
+}
+- (void)updateDockNavigationMenu {
+    BOOL permission = [self.dockNavigation hasPermission];
+    self.dockNavigationItem.title = permission ? @"One-click Dock switching" : @"Enable one-click Dock switching…";
+    self.dockNavigationItem.state = permission && self.dockNavigation.enabled ? NSControlStateValueOn : NSControlStateValueOff;
+}
+- (void)toggleDockNavigation:(id)sender {
+    if (![self.dockNavigation hasPermission]) { [self.dockNavigation requestPermission]; return; }
+    BOOL disabled = ![NSUserDefaults.standardUserDefaults boolForKey:@"DockNavigationDisabled"];
+    [NSUserDefaults.standardUserDefaults setBool:disabled forKey:@"DockNavigationDisabled"];
+    self.dockNavigation.enabled = self.enabled && !disabled;
+    [self updateDockNavigationMenu];
 }
 - (void)quit:(id)sender { [NSApp terminate:nil]; }
 
@@ -330,6 +347,13 @@ static BOOL SHIsTrue(id value) {
     self.lastForeground = NSWorkspace.sharedWorkspace.frontmostApplication;
     NSNotificationCenter *center = NSWorkspace.sharedWorkspace.notificationCenter;
     __weak StayHere *weakSelf = self;
+    self.dockNavigation = [SHDockNavigation new];
+    self.dockNavigation.enabled = ![NSUserDefaults.standardUserDefaults boolForKey:@"DockNavigationDisabled"];
+    self.dockNavigation.willNavigate = ^(NSRunningApplication *app) {
+        SHLaunch *launch = weakSelf.launches[@(app.processIdentifier)];
+        if (launch) [weakSelf releaseLaunch:launch reason:@"explicit-dock-click"];
+    };
+    [self.dockNavigation start];
     for (NSNotificationName name in @[NSWorkspaceWillLaunchApplicationNotification, NSWorkspaceDidLaunchApplicationNotification]) {
         [self.observers addObject:[center addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n) { [weakSelf launchNotification:n]; }]];
     }
@@ -353,6 +377,10 @@ static BOOL SHIsTrue(id value) {
         self.enabledItem.target = self;
         self.enabledItem.state = NSControlStateValueOn;
         [menu addItem:self.enabledItem];
+        self.dockNavigationItem = [[NSMenuItem alloc] initWithTitle:@"One-click Dock switching" action:@selector(toggleDockNavigation:) keyEquivalent:@""];
+        self.dockNavigationItem.target = self;
+        [menu addItem:self.dockNavigationItem];
+        [self updateDockNavigationMenu];
         [menu addItem:NSMenuItem.separatorItem];
         NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit Stay Here" action:@selector(quit:) keyEquivalent:@""];
         quit.target = self;
@@ -374,6 +402,7 @@ static BOOL SHIsTrue(id value) {
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender {
     if (!self.stopped) {
         self.stopped = YES;
+        [self.dockNavigation stop];
         [self.timer invalidate];
         NSNotificationCenter *center = NSWorkspace.sharedWorkspace.notificationCenter;
         for (id observer in self.observers) [center removeObserver:observer];
