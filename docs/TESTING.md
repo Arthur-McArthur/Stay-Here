@@ -22,7 +22,7 @@ An isolated REAPER launch placed its windows on its assigned desktop. Its fresh-
 
 The fixed 100 ms post-click dispatch delay was removed. Accessibility window focusing now overlaps the native desktop transition, and arrival verifies the window immediately instead of always repeating the focus operations and waiting another 80 ms. The guarded repair remains available when the window is not visible in front. Completion logs also report `clickElapsed`, measured from receipt of mouse-up.
 
-The signed build and seven installer checks passed. The initial post-change live timing attempt encountered a locked desktop and produced no valid samples; it is not used as performance evidence. The timings below qualify 0.2.1, not a measured speedup for 0.2.2.
+The signed build and seven installer checks passed. An initial automated timing attempt encountered a locked desktop and produced no valid samples; that attempt is excluded. After unlocking, three user-performed Firefox Dock switches from D1 to D3 completed with the window verified visible in front. Navigation times were 0.381, 0.310, and 0.340 seconds, a median of 0.340 seconds versus the previous comparable median of 0.485 seconds (approximately 30% faster). Receipt-of-mouse-up to completion times were 0.384, 0.311, and 0.341 seconds. These are measurements on the qualified single-display host, not a guarantee for all apps or configurations.
 
 ### 0.2.1 direct-jump and visibility qualification
 
